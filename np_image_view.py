@@ -3,6 +3,7 @@ import math
 import time
 import numpy as np
 from PIL import Image
+from random import shuffle, randint
 
 # RGB effects have a single foreground RGB value super imposed over the effect
 # Static effects have RGB values built in and can only be dimmed
@@ -133,16 +134,97 @@ def square_vortex(vortex_depth=1):
   
   return np_array
 
+# def pulse_2by2(np_array, top_left, step=0.1):
+def pulse_2by2(step=0.1):
+  '''2 pixel square that pulses up/down once with `step` at a given x, y coordinate'''
+  value = step
+  # set_box_to_value(np_array, value, 
+                    # top_left=(top_left[0], top_left[1]), 
+                    # bottom_right=(top_left[0]+1, top_left[1]+1))
+  while value + step > 0:
+    yield round(value, 2)
+    value += step
+    # set_box_to_value(np_array, value,  
+    #                   top_left=(top_left[0], top_left[1]), 
+    #                 bottom_right=(top_left[0]+1, top_left[1]+1))
+    # print(value)
+    if value + step > 1:
+      step *= -0.5
+
+
+def pulse_mini_square_4by4(top_left, overlap=0):
+  pulses = []
+  for j in range(4):
+    for i in range(4):
+      # pulses.append(pulse_2by2(np_array, top_left=(top_left[0]+i*2, top_left[1]+j*2)))
+      pulses.append(((i, j), pulse_2by2()))
+  
+  for pulse in pulses:
+    pulse_coords = tuple(map(sum, zip(top_left, pulse[0])))
+    for value in pulse[1]:
+      yield (pulse_coords, value)
+  
+  return False
+
+
+def pulse_mini_square_frame(fg_color, bg_color, overlap=0):
+  square_coords = [(x, y) for x in range(0, 108, 4) for y in range(0, 36, 4)]
+  shuffle(square_coords)
+  for i in range(8):
+    square_coords.append(square_coords[i])
+  # print(square_coords)
+  frame = 0
+  # active_squares = [pulse_mini_square_4by4(np_array, top_left=square_coords.pop(0))]
+  active_squares = [pulse_mini_square_4by4(top_left=square_coords.pop(0))]
+  # while len(square_coords) > 0:
+  while True:
+    pulse_data = []
+    for square in active_squares:
+      try:
+        pulse_data.append(next(square))
+      except StopIteration:
+        pass
+    if len(pulse_data) == 0:
+      break
+    # print(pulse_data)
+
+    np_array = create_level_array(value=-1)
+    for pulse in pulse_data:
+      pulse_coords = pulse[0]
+      pulse_value = pulse[1]
+      set_box_to_value(np_array, pulse_value,  
+                      top_left=pulse_coords, 
+                    bottom_right=(pulse_coords[0]+1, pulse_coords[1]+1))
+    np.save(f"rgb-mini-square-chase/rgb-mini-square-chase{str(frame).zfill(3)}", np_array)
+    save_array_as_image(np_array, f"mini-square-chase/test{str(frame).zfill(3)}.png", fg_color=fg_color, bg_color=bg_color)
+    frame += 1
+    if frame % 10 == 0 and len(square_coords) > 0:
+      print(f"add square at frame: {frame}")
+      active_squares.append(pulse_mini_square_4by4(top_left=square_coords.pop(0)))
+
+
+  
+
+
 if __name__ == "__main__":
   np.set_printoptions(threshold=sys.maxsize)
-  fg_color = {"red":0, "green":0, "blue":255}
+  fg_color = {"red":255, "green":255, "blue":255}
   bg_color = {"red":0, "green":0, "blue":0}
-  
-  for i in range(100):
-    depth = i / 100
-    color_array = square_vortex(vortex_depth=depth)
-    np.save(f"rgb-square-vortex/rgb-square-vortex{str(i).zfill(3)}", color_array)
-    save_array_as_image(color_array, f"test{str(i).zfill(3)}.png", fg_color=fg_color, bg_color=bg_color)
+  pulse_mini_square_frame(fg_color, bg_color)
+  # np_array = create_level_array(value=-1)
+  # mini_square_generator = pulse_mini_square_4by4(np_array, top_left=(0, 0))
+  # np.save(f"rgb-pulse-mini-square/rgb-pulse-mini-square{str(0).zfill(3)}", np_array)
+  # save_array_as_image(np_array, f"pulse-mini-square/test{str(0).zfill(3)}.png", fg_color=fg_color, bg_color=bg_color)
+  # for i, _ in enumerate(mini_square_generator):
+  #   np.save(f"rgb-pulse-mini-square/rgb-pulse-mini-square{str(i).zfill(3)}", np_array)
+  #   save_array_as_image(np_array, f"pulse-mini-square/test{str(i).zfill(3)}.png", fg_color=fg_color, bg_color=bg_color)
+
+
+  # for i in range(100):
+  #   depth = i / 100
+  #   color_array = square_vortex(vortex_depth=depth)
+  #   np.save(f"rgb-square-vortex/rgb-square-vortex{str(i).zfill(3)}", color_array)
+  #   save_array_as_image(color_array, f"test{str(i).zfill(3)}.png", fg_color=fg_color, bg_color=bg_color)
   # default_array = create_default_array(dt=np.short)
 
   # step_level = 0
