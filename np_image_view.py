@@ -203,6 +203,75 @@ def pulse_mini_square_frame(fg_color, bg_color, overlap=0):
       active_squares.append(pulse_mini_square_4by4(top_left=square_coords.pop(0)))
 
 
+def animate_box_generator(top_left, bottom_right, 
+                        speeds={"left":-1, "right":1, "top":-1, "bottom":1}, 
+                        stops={"left": 0, "right": 107, "top": 0, "bottom": 35}):
+  
+  left, top = top_left
+  right, bottom = bottom_right
+
+  def check_boundary(condition):
+    return True if condition else False
+
+  def check_left_right():
+    return check_boundary(left+speeds["left"] <= right+speeds["right"])
+
+  def check_top_bottom():
+    return check_boundary(top+speeds["top"] <= bottom+speeds["bottom"])
+  
+  def check_left_stop():
+    condition = True
+    if speeds["left"] < 0:
+      condition = left+speeds["left"] >= stops["left"]
+    elif speeds["left"] > 0:
+      condition = left+speeds["left"] <= stops["left"]
+    return check_boundary(condition)
+  
+  def check_right_stop():
+    condition = True
+    if speeds["right"] < 0:
+      condition = right+speeds["right"] >= stops["right"]
+    elif speeds["right"] > 0:
+      condition = right+speeds["right"] <= stops["right"]
+    return check_boundary(condition)
+  
+  def check_top_stop():
+    condition = True
+    if speeds["top"] < 0:
+      condition = top+speeds["top"] >= stops["top"]
+    elif speeds["top"] > 0:
+      condition = top+speeds["top"] <= stops["top"]
+    return check_boundary(condition)
+  
+  def check_bottom_stop():
+    condition = True
+    if speeds["bottom"] < 0:
+      condition = bottom+speeds["bottom"] >= stops["bottom"]
+    elif speeds["bottom"] > 0:
+      condition = bottom+speeds["bottom"] <= stops["bottom"]
+    return check_boundary(condition)
+
+  keep_expanding = True
+  while keep_expanding:
+    yield (left, top, right, bottom)
+    left_right_expand = check_left_right()
+    left_expand = check_left_stop() and left_right_expand
+    left += speeds["left"] if left_expand else abs(stops["left"]-left)*(speeds["left"]//abs(speeds["left"]))
+
+    right_expand = check_right_stop() and left_right_expand
+    right += speeds["right"] if right_expand else abs(stops["right"]-right)*(speeds["right"]//abs(speeds["right"]))
+
+    top_bottom_expand = check_top_bottom()
+    top_expand = check_top_stop() and top_bottom_expand
+    top += speeds["top"] if top_expand else abs(stops["top"]-top)*(speeds["top"]//abs(speeds["top"]))
+
+    bottom_expand = check_bottom_stop() and top_bottom_expand
+    bottom += speeds["bottom"] if bottom_expand else abs(stops["bottom"]-bottom)*(speeds["bottom"]//abs(speeds["bottom"]))
+
+    keep_expanding = left_expand or right_expand or top_expand or bottom_expand
+    
+  
+  yield False
   
 
 
@@ -210,7 +279,45 @@ if __name__ == "__main__":
   np.set_printoptions(threshold=sys.maxsize)
   fg_color = {"red":255, "green":255, "blue":255}
   bg_color = {"red":0, "green":0, "blue":0}
-  pulse_mini_square_frame(fg_color, bg_color)
+  box_generators = []
+  box_generators.append(animate_box_generator((54, 16), (55, 19),
+                    speeds={"left":3, "right":3, "top":-1, "bottom":1}, 
+                    stops={"left": 107, "right": 107, "top": 0, "bottom": 35}))
+
+  box_generators.append(animate_box_generator((52, 16), (53, 19),
+                    speeds={"left":-3, "right":-3, "top":-1, "bottom":1}, 
+                    stops={"left": 0, "right": 0, "top": 0, "bottom": 35}))
+  
+  frame = 0
+  while len(box_generators) > 0:
+    np_array = create_level_array(value=-1)
+    for box in box_generators:
+      box_coords = next(box)
+    
+      if not box_coords:
+        box_generators.remove(box)
+        continue
+      set_box_to_value(np_array, 1,  
+                      top_left=box_coords[:2], 
+                      bottom_right=box_coords[2:])
+      
+    np.save(f"rgb-pole-position/rgb-pole-position{str(frame).zfill(3)}", np_array)
+    save_array_as_image(np_array, f"pole-position/test{str(frame).zfill(3)}.png", fg_color=fg_color, bg_color=bg_color)
+    frame += 1
+
+    if frame % 10 == 0 and frame <= 300:
+      # print(f"add square at frame: {frame}")
+      box_generators.append(animate_box_generator((54, 16), (55, 19),
+                    speeds={"left":3, "right":3, "top":-1, "bottom":1}, 
+                    stops={"left": 107, "right": 107, "top": 0, "bottom": 35}))
+
+      box_generators.append(animate_box_generator((52, 16), (53, 19),
+                    speeds={"left":-3, "right":-3, "top":-1, "bottom":1}, 
+                    stops={"left": 0, "right": 0, "top": 0, "bottom": 35}))
+  
+  # pulse_mini_square_frame(fg_color, bg_color)
+  
+  
   # np_array = create_level_array(value=-1)
   # mini_square_generator = pulse_mini_square_4by4(np_array, top_left=(0, 0))
   # np.save(f"rgb-pulse-mini-square/rgb-pulse-mini-square{str(0).zfill(3)}", np_array)
