@@ -3,6 +3,7 @@ import math
 import time
 import numpy as np
 from PIL import Image
+import ffmpeg
 from random import shuffle, randint
 
 # RGB effects have a single foreground RGB value super imposed over the effect
@@ -34,7 +35,7 @@ def add_background_color(np_array, bg_color):
 
   return np_array
 
-def save_array_as_image(np_array, filename, 
+def save_rgb_as_image(np_array, filename, 
                         fg_color={"red":0, "green":0, "blue":0}, 
                         bg_color={"red":0, "green":0, "blue":0}):
   # TODO saving as np.uint8 is necessary for this function
@@ -46,6 +47,10 @@ def save_array_as_image(np_array, filename,
   np_array = color_convert(np_array)
   image = Image.fromarray(np_array.astype(np.uint8))
   image.save(filename, format="png")
+
+def save_eff_as_image(np_array, filename):
+  image = Image.fromarray(np_array.astype(np.uint8))
+  image.save("./thumbs/" + filename, format="png")
 
 def color_convert(np_array):
   '''Data sent to wall is GRB, image data is RGB'''
@@ -196,7 +201,7 @@ def pulse_mini_square_frame(fg_color, bg_color, overlap=0):
                       top_left=pulse_coords, 
                     bottom_right=(pulse_coords[0]+1, pulse_coords[1]+1))
     np.save(f"rgb-mini-square-chase/rgb-mini-square-chase{str(frame).zfill(3)}", np_array)
-    save_array_as_image(np_array, f"mini-square-chase/test{str(frame).zfill(3)}.png", fg_color=fg_color, bg_color=bg_color)
+    save_rgb_as_image(np_array, f"mini-square-chase/test{str(frame).zfill(3)}.png", fg_color=fg_color, bg_color=bg_color)
     frame += 1
     if frame % 10 == 0 and len(square_coords) > 0:
       print(f"add square at frame: {frame}")
@@ -273,47 +278,100 @@ def animate_box_generator(top_left, bottom_right,
   
   yield False
   
+def convert_gif_to_np(image, func='scale', axis=0):
+  effect_name = image.split('.')[0]
+  import_url = './imports/' + image 
+  try:
+    probe = ffmpeg.probe(import_url)
+  except Exception as e:
+    print(e)
 
+  gif_x = probe['streams'][0]['width']
+  gif_y = probe['streams'][0]['height']
+  center_x = gif_x // 2
+  center_y = gif_y // 2 - 30
+
+  try:
+    gif_input = ffmpeg.input(import_url)
+  except Exception as e:
+      print(e)
+
+  if func == 'crop':
+    if axis == 0:
+      crop_x = gif_x
+      crop_y = gif_y // 3 + 120
+      x = 0
+      y = center_y - (crop_y // 2)
+      try:
+        gif_mod = ffmpeg.crop(gif_input, x, y, crop_x, crop_y)
+      except Exception as e:
+        print(e)
+  elif func == 'scale':
+    gif_mod = gif_input
+
+  out, _ = gif_mod.filter('scale', 108, 36).output('pipe:', format='rawvideo', pix_fmt='rgb24').run(capture_stdout=True)
+  video = np.frombuffer(out, np.uint8).reshape([-1, 36, 108, 3])
+
+  # NOTE without crop
+  # out, _ = ffmpeg.input('./imports/' + image).filter('scale', 108, 36).output('pipe:', format='rawvideo', pix_fmt='rgb24').run(capture_stdout=True)
+  # video = np.frombuffer(out, np.uint8).reshape([-1, 36, 108, 3])
+    
+
+  for i, frame in enumerate(video):
+    np.save(f"../matrix_data/eff-{effect_name}/eff-{effect_name}{str(i).zfill(3)}", frame, allow_pickle=False)
+    save_eff_as_image(frame, effect_name + str(i).zfill(3) + ".png")
+  print(f"Frames: {i}")
 
 if __name__ == "__main__":
   np.set_printoptions(threshold=sys.maxsize)
   fg_color = {"red":255, "green":255, "blue":255}
   bg_color = {"red":0, "green":0, "blue":0}
-  box_generators = []
-  box_generators.append(animate_box_generator((54, 16), (55, 19),
-                    speeds={"left":3, "right":3, "top":-1, "bottom":1}, 
-                    stops={"left": 107, "right": 107, "top": 0, "bottom": 35}))
 
-  box_generators.append(animate_box_generator((52, 16), (53, 19),
-                    speeds={"left":-3, "right":-3, "top":-1, "bottom":1}, 
-                    stops={"left": 0, "right": 0, "top": 0, "bottom": 35}))
+  convert_gif_to_np('wifeknife.gif')
+
+  ### SINGLE STATIC FRAME
+  # np_array = create_default_array()
+  # i = 0
+  # np.save(f"../matrix_data/rgb-solid/rgb-solid{str(i).zfill(3)}", np_array)
+
+
+
+  # Box generation
+  # box_generators = []
+  # box_generators.append(animate_box_generator((54, 16), (55, 19),
+  #                   speeds={"left":3, "right":3, "top":-1, "bottom":1}, 
+  #                   stops={"left": 107, "right": 107, "top": 0, "bottom": 35}))
+
+  # box_generators.append(animate_box_generator((52, 16), (53, 19),
+  #                   speeds={"left":-3, "right":-3, "top":-1, "bottom":1}, 
+  #                   stops={"left": 0, "right": 0, "top": 0, "bottom": 35}))
   
-  frame = 0
-  while len(box_generators) > 0:
-    np_array = create_level_array(value=-1)
-    for box in box_generators:
-      box_coords = next(box)
+  # frame = 0
+  # while len(box_generators) > 0:
+  #   np_array = create_level_array(value=-1)
+  #   for box in box_generators:
+  #     box_coords = next(box)
     
-      if not box_coords:
-        box_generators.remove(box)
-        continue
-      set_box_to_value(np_array, 1,  
-                      top_left=box_coords[:2], 
-                      bottom_right=box_coords[2:])
+  #     if not box_coords:
+  #       box_generators.remove(box)
+  #       continue
+  #     set_box_to_value(np_array, 1,  
+  #                     top_left=box_coords[:2], 
+  #                     bottom_right=box_coords[2:])
       
-    np.save(f"rgb-pole-position/rgb-pole-position{str(frame).zfill(3)}", np_array)
-    save_array_as_image(np_array, f"pole-position/test{str(frame).zfill(3)}.png", fg_color=fg_color, bg_color=bg_color)
-    frame += 1
+  #   np.save(f"rgb-pole-position/rgb-pole-position{str(frame).zfill(3)}", np_array)
+  #   save_rgb_as_image(np_array, f"pole-position/test{str(frame).zfill(3)}.png", fg_color=fg_color, bg_color=bg_color)
+  #   frame += 1
 
-    if frame % 10 == 0 and frame <= 300:
-      # print(f"add square at frame: {frame}")
-      box_generators.append(animate_box_generator((54, 16), (55, 19),
-                    speeds={"left":3, "right":3, "top":-1, "bottom":1}, 
-                    stops={"left": 107, "right": 107, "top": 0, "bottom": 35}))
+  #   if frame % 10 == 0 and frame <= 300:
+  #     # print(f"add square at frame: {frame}")
+  #     box_generators.append(animate_box_generator((54, 16), (55, 19),
+  #                   speeds={"left":3, "right":3, "top":-1, "bottom":1}, 
+  #                   stops={"left": 107, "right": 107, "top": 0, "bottom": 35}))
 
-      box_generators.append(animate_box_generator((52, 16), (53, 19),
-                    speeds={"left":-3, "right":-3, "top":-1, "bottom":1}, 
-                    stops={"left": 0, "right": 0, "top": 0, "bottom": 35}))
+  #     box_generators.append(animate_box_generator((52, 16), (53, 19),
+  #                   speeds={"left":-3, "right":-3, "top":-1, "bottom":1}, 
+  #                   stops={"left": 0, "right": 0, "top": 0, "bottom": 35}))
   
   # pulse_mini_square_frame(fg_color, bg_color)
   
@@ -321,17 +379,17 @@ if __name__ == "__main__":
   # np_array = create_level_array(value=-1)
   # mini_square_generator = pulse_mini_square_4by4(np_array, top_left=(0, 0))
   # np.save(f"rgb-pulse-mini-square/rgb-pulse-mini-square{str(0).zfill(3)}", np_array)
-  # save_array_as_image(np_array, f"pulse-mini-square/test{str(0).zfill(3)}.png", fg_color=fg_color, bg_color=bg_color)
+  # save_rgb_as_image(np_array, f"pulse-mini-square/test{str(0).zfill(3)}.png", fg_color=fg_color, bg_color=bg_color)
   # for i, _ in enumerate(mini_square_generator):
   #   np.save(f"rgb-pulse-mini-square/rgb-pulse-mini-square{str(i).zfill(3)}", np_array)
-  #   save_array_as_image(np_array, f"pulse-mini-square/test{str(i).zfill(3)}.png", fg_color=fg_color, bg_color=bg_color)
+  #   save_rgb_as_image(np_array, f"pulse-mini-square/test{str(i).zfill(3)}.png", fg_color=fg_color, bg_color=bg_color)
 
 
   # for i in range(100):
   #   depth = i / 100
   #   color_array = square_vortex(vortex_depth=depth)
   #   np.save(f"rgb-square-vortex/rgb-square-vortex{str(i).zfill(3)}", color_array)
-  #   save_array_as_image(color_array, f"test{str(i).zfill(3)}.png", fg_color=fg_color, bg_color=bg_color)
+  #   save_rgb_as_image(color_array, f"test{str(i).zfill(3)}.png", fg_color=fg_color, bg_color=bg_color)
   # default_array = create_default_array(dt=np.short)
 
   # step_level = 0
