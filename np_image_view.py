@@ -9,6 +9,7 @@ from random import shuffle, randint
 # RGB effects have a single foreground RGB value super imposed over the effect
 # Static effects have RGB values built in and can only be dimmed
 
+
 def create_default_array(value=1, dt=np.uint8):
   '''Create a numpy array of proper dimensions'''
   np_array = np.ones((36, 108, 3), dtype=dt)
@@ -16,10 +17,12 @@ def create_default_array(value=1, dt=np.uint8):
 
   return np_array
 
+
 def create_level_array(value=1):
   '''Abstracts the effect vs color'''
   np_array = create_default_array(value=value, dt=np.half)
   return np_array
+
 
 def add_foreground_color(np_array, fg_color):
   np_array[:,:,0][np_array[:,:,0] > 0] *= fg_color["green"]
@@ -28,12 +31,14 @@ def add_foreground_color(np_array, fg_color):
 
   return np_array
 
+
 def add_background_color(np_array, bg_color):
   np_array[:,:,0][np_array[:,:,0] < 0] *= -bg_color["green"]
   np_array[:,:,1][np_array[:,:,1] < 0] *= -bg_color["red"]
   np_array[:,:,2][np_array[:,:,2] < 0] *= -bg_color["blue"]
 
   return np_array
+
 
 def save_rgb_as_image(np_array, filename, 
                         fg_color={"red":0, "green":0, "blue":0}, 
@@ -48,9 +53,11 @@ def save_rgb_as_image(np_array, filename,
   image = Image.fromarray(np_array.astype(np.uint8))
   image.save(filename, format="png")
 
+
 def save_eff_as_image(np_array, filename):
   image = Image.fromarray(np_array.astype(np.uint8))
   image.save("./thumbs/" + filename, format="png")
+
 
 def color_convert(np_array):
   '''Data sent to wall is GRB, image data is RGB'''
@@ -60,6 +67,7 @@ def color_convert(np_array):
   convert_array[:,:,2] = np_array[:,:,2]
 
   return convert_array
+
 
 def set_box_to_value(np_array, value, top_left=(0,0), bottom_right=(0,0), fill=True):
   '''Set a box of coords to a value'''
@@ -327,7 +335,7 @@ if __name__ == "__main__":
   fg_color = {"red":255, "green":255, "blue":255}
   bg_color = {"red":0, "green":0, "blue":0}
 
-  convert_gif_to_np('wifeknife.gif')
+  convert_gif_to_np('hearts2.gif')
 
   ### SINGLE STATIC FRAME
   # np_array = create_default_array()
