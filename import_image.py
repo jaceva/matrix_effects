@@ -2,6 +2,13 @@ import ffmpeg
 import numpy as np
 from PIL import Image
 
+# Config Data
+
+EFFECT_DIRECTORY = ""
+THUMBS_DIRECTORY = ""
+IMPORT_DIRECTORY = ""
+
+
 def save_eff_as_image(np_array, filename):
   image = Image.fromarray(np_array.astype(np.uint8))
   image.save("./thumbs/" + filename, format="png")
